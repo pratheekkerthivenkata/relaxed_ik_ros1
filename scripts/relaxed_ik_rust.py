@@ -13,7 +13,7 @@ from relaxed_ik_ros1.srv import IKPose, IKPoseResponse
 from relaxed_ik_ros1.msg import EEPoseGoals, EEVelGoals
 from geometry_msgs.msg import Point
 from std_msgs.msg import Float64
-from sensor_msgs.msg import JointState 
+from sensor_msgs.msg import JointState
 from urdf_parser_py.urdf import URDF
 from kdl_parser import kdl_tree_from_urdf_model
 import PyKDL as kdl
@@ -88,13 +88,16 @@ class RelaxedIK:
         print("\nSolver RelaxedIK initialized!\n")
 
     def get_ee_pose(self):
+        print("calling get_ee_pose")
         ee_poses = self.relaxed_ik.get_ee_positions()
         ee_poses = np.array(ee_poses)
         ee_poses = ee_poses.reshape((len(ee_poses)//6, 6))
         ee_poses = ee_poses.tolist()
+        print("ee_poses: ",ee_poses)
         return ee_poses
 
     def handle_ik_pose(self, req):
+        print("calling handle_ik_pose")
         positions = []
         orientations = []
         tolerances = []
@@ -123,6 +126,7 @@ class RelaxedIK:
             vis_msg.tolerances = req.tolerances
             self.vis_ee_pub.publish(vis_msg)
 
+        print("positions: ",positions,", orientations: ", orientations, ", tolerances: ",tolerances)
         ik_solution = self.relaxed_ik.solve_position(positions, orientations, tolerances)
 
         self.js_msg.header.stamp = rospy.Time.now()
@@ -134,6 +138,7 @@ class RelaxedIK:
         return res
 
     def reset_cb(self, msg):
+        print("calling reset_cb")
         n = len(msg.position)
         x = (ctypes.c_double * n)()
         for i in range(n):
@@ -141,6 +146,7 @@ class RelaxedIK:
         self.relaxed_ik.reset(x)
 
     def pose_goals_cb(self, msg):
+        print("calling pose_goals_cb")
         positions = []
         orientations = []
         tolerances = []
@@ -163,19 +169,22 @@ class RelaxedIK:
                 for j in range(6):
                     tolerances.append(0.0)
 
+        print("positions: ",positions,", orientations: ", orientations, ", tolerances: ",tolerances)
         ik_solution = self.relaxed_ik.solve_position(positions, orientations, tolerances)
 
         # Publish the joint angle solution
         self.js_msg.header.stamp = rospy.Time.now()
+        print("ik_solution: ",ik_solution)
         self.js_msg.position = ik_solution
         self.angles_pub.publish(self.js_msg)
 
     def pose_vels_cb(self, msg):
+        print("calling pose_vels_cb")
         linear_vels = []
         angular_vels = []
         tolerances = []
         for i in range(len(msg.ee_vels)):
-            linear_vels.append(msg.ee_vels[i].linear.x)
+            linear_vels.append(msg.ee_vels[i].linear.x) 
             linear_vels.append(msg.ee_vels[i].linear.y)
             linear_vels.append(msg.ee_vels[i].linear.z)
             angular_vels.append(msg.ee_vels[i].angular.x)
@@ -192,12 +201,14 @@ class RelaxedIK:
                 for j in range(6):
                     tolerances.append(0.0)
 
+        print("linear_vels: ",linear_vels, ", angular_vels: ",angular_vels, ", tolerances: ",tolerances)
         ik_solution = self.relaxed_ik.solve_velocity(linear_vels, angular_vels, tolerances)
 
         assert len(ik_solution) == len(self.robot.articulated_joint_names)
 
         # Publish the joint angle solution
         self.js_msg.header.stamp = rospy.Time.now()
+        print("ik_solution: ",ik_solution)
         self.js_msg.position = ik_solution
         self.angles_pub.publish(self.js_msg)
 
